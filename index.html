@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="带齐了吗">
+<meta name="theme-color" content="#0f1115">
+<title>带齐了吗？</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%236C5CE7'/><path d='M28 52 L44 68 L74 34' stroke='white' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1a1d26;
+    --card2: #222633;
+    --accent: #6C5CE7;
+    --accent2: #8e7bff;
+    --green: #2dd4a7;
+    --text: #f2f3f7;
+    --sub: #8b90a0;
+    --radius: 20px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* ===== Pages ===== */
+  .page {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: var(--bg);
+    transition: transform .38s cubic-bezier(.32,.72,.28,1), opacity .38s;
+    padding-top: env(safe-area-inset-top);
+  }
+  #page-detail {
+    transform: translateX(100%);
+    z-index: 10;
+  }
+  #page-detail.open { transform: translateX(0); }
+
+  /* ===== Header ===== */
+  header {
+    padding: 28px 24px 14px;
+    flex-shrink: 0;
+  }
+  .title-row { display: flex; align-items: center; justify-content: space-between; }
+  h1 {
+    font-size: 32px; font-weight: 800; letter-spacing: .5px;
+    background: linear-gradient(120deg, #fff, #b9aefc);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: var(--sub); font-size: 14px; margin-top: 6px; }
+
+  /* ===== Scroll area ===== */
+  .scroll {
+    flex: 1; overflow-y: auto; padding: 8px 20px 120px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ===== Category cards ===== */
+  .cat-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 16px;
+    cursor: pointer;
+    transition: transform .18s ease, background .2s;
+    box-shadow: 0 4px 18px rgba(0,0,0,.25);
+    position: relative;
+    overflow: hidden;
+  }
+  .cat-card:active { transform: scale(.965); background: var(--card2); }
+  .cat-icon {
+    width: 52px; height: 52px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; flex-shrink: 0;
+  }
+  .cat-info { flex: 1; min-width: 0; }
+  .cat-name { font-size: 18px; font-weight: 700; }
+  .cat-progress-text { font-size: 13px; color: var(--sub); margin-top: 4px; }
+  .cat-progress-text.done { color: var(--green); font-weight: 600; }
+  .progress-bar {
+    height: 6px; border-radius: 3px; background: #2c3040;
+    margin-top: 10px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    width: 0%;
+    transition: width .5s cubic-bezier(.32,.72,.28,1);
+  }
+  .progress-fill.full { background: linear-gradient(90deg, var(--green), #5ee8c5); }
+  .cat-del {
+    width: 34px; height: 34px; border-radius: 12px;
+    border: none; background: transparent; color: #5a5f70;
+    font-size: 18px; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .2s, color .2s;
+  }
+  .cat-del:active { background: rgba(255,90,90,.15); color: #ff6b6b; }
+
+  /* ===== Item rows ===== */
+  .item-row {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 14px;
+    transition: background .3s, opacity .3s;
+    box-shadow: 0 3px 12px rgba(0,0,0,.2);
+    animation: slideIn .3s cubic-bezier(.32,.72,.28,1);
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .item-row.checked { background: #161a20; }
+  .item-row.checked .item-name { color: var(--sub); text-decoration: line-through; text-decoration-color: var(--green); }
+  .check-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 2.5px solid #3a4052;
+    background: transparent; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .check-btn svg { width: 18px; height: 18px; opacity: 0; transform: scale(.3); transition: all .25s cubic-bezier(.34,1.56,.64,1); }
+  .item-row.checked .check-btn {
+    background: linear-gradient(135deg, var(--green), #45e0b8);
+    border-color: transparent;
+    box-shadow: 0 0 14px rgba(45,212,167,.45);
+    transform: scale(1.05);
+  }
+  .item-row.checked .check-btn svg { opacity: 1; transform: scale(1); }
+  .check-btn:active { transform: scale(.85); }
+  .item-name { flex: 1; font-size: 17px; font-weight: 600; transition: color .3s; word-break: break-all; }
+  .item-del {
+    width: 32px; height: 32px; border-radius: 10px; border: none;
+    background: transparent; color: #5a5f70; font-size: 16px;
+    cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .item-del:active { color: #ff6b6b; }
+
+  /* ===== Empty state ===== */
+  .empty {
+    text-align: center; padding: 70px 30px; color: var(--sub);
+  }
+  .empty .emoji { font-size: 52px; display: block; margin-bottom: 14px; }
+  .empty p { font-size: 15px; line-height: 1.7; }
+
+  /* ===== FAB ===== */
+  .fab {
+    position: fixed;
+    right: 22px;
+    bottom: calc(env(safe-area-inset-bottom) + 26px);
+    width: 62px; height: 62px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; color: #fff; font-size: 30px; font-weight: 300;
+    cursor: pointer; z-index: 50;
+    box-shadow: 0 8px 24px rgba(108,92,231,.5);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+    line-height: 1;
+    padding-bottom: 3px;
+  }
+  .fab:active { transform: scale(.88); }
+
+  /* ===== Detail header ===== */
+  .detail-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 16px 6px;
+    flex-shrink: 0;
+  }
+  .back-btn {
+    width: 40px; height: 40px; border-radius: 14px;
+    background: var(--card); border: none; color: var(--text);
+    font-size: 18px; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s;
+  }
+  .back-btn:active { transform: scale(.9); }
+  .detail-title { flex: 1; min-width: 0; }
+  .detail-title h2 { font-size: 22px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .detail-title .sub { font-size: 13px; color: var(--sub); margin-top: 2px; }
+  .reset-btn {
+    padding: 10px 16px; border-radius: 14px;
+    background: var(--card); border: none; color: var(--accent2);
+    font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+    transition: transform .15s;
+  }
+  .reset-btn:active { transform: scale(.92); }
+
+  /* ===== Big check-all button ===== */
+  .checkall-wrap { padding: 4px 20px 0; flex-shrink: 0; }
+  .checkall-btn {
+    width: 100%; padding: 18px;
+    border-radius: var(--radius);
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; font-size: 17px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(108,92,231,.4);
+    transition: transform .18s cubic-bezier(.34,1.56,.64,1), opacity .2s;
+  }
+  .checkall-btn:active { transform: scale(.97); }
+  .checkall-btn.all-done {
+    background: linear-gradient(135deg, var(--green), #45e0b8);
+    box-shadow: 0 6px 20px rgba(45,212,167,.4);
+  }
+
+  /* ===== Modal ===== */
+  .modal-mask {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: flex-end; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+  }
+  .modal-mask.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    width: 100%; max-width: 480px;
+    background: var(--card);
+    border-radius: 28px 28px 0 0;
+    padding: 26px 24px calc(env(safe-area-inset-bottom) + 26px);
+    transform: translateY(100%);
+    transition: transform .38s cubic-bezier(.32,.72,.28,1);
+  }
+  .modal-mask.open .modal { transform: translateY(0); }
+  .modal h3 { font-size: 20px; font-weight: 800; margin-bottom: 18px; }
+  .modal input[type="text"] {
+    width: 100%; padding: 16px 18px;
+    border-radius: 16px; border: 2px solid #2c3040;
+    background: #12151d; color: var(--text);
+    font-size: 17px; outline: none;
+    transition: border-color .2s;
+    -webkit-user-select: text; user-select: text;
+  }
+  .modal input[type="text"]:focus { border-color: var(--accent); }
+  .emoji-row {
+    display: flex; gap: 10px; margin: 16px 0 4px;
+    flex-wrap: wrap;
+  }
+  .emoji-pick {
+    width: 46px; height: 46px; border-radius: 14px;
+    border: 2px solid transparent;
+    background: #12151d; font-size: 23px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s, border-color .2s;
+  }
+  .emoji-pick:active { transform: scale(.88); }
+  .emoji-pick.sel { border-color: var(--accent); background: rgba(108,92,231,.15); }
+  .modal-actions { display: flex; gap: 12px; margin-top: 20px; }
+  .btn-cancel, .btn-ok {
+    flex: 1; padding: 16px; border-radius: 16px; border: none;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    transition: transform .15s;
+  }
+  .btn-cancel { background: #2c3040; color: var(--sub); }
+  .btn-ok {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(108,92,231,.35);
+  }
+  .btn-cancel:active, .btn-ok:active { transform: scale(.95); }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed; left: 50%; bottom: 110px;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(30,34,46,.95);
+    border: 1px solid #3a4052;
+    color: var(--text);
+    padding: 12px 22px; border-radius: 100px;
+    font-size: 14px; font-weight: 600;
+    opacity: 0; pointer-events: none;
+    transition: all .35s cubic-bezier(.32,.72,.28,1);
+    z-index: 200;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* celebrate burst */
+  .burst {
+    position: fixed; top: 40%; left: 50%;
+    transform: translate(-50%,-50%) scale(.5);
+    font-size: 60px; z-index: 150; pointer-events: none;
+    opacity: 0;
+    transition: all .5s cubic-bezier(.34,1.56,.64,1);
+  }
+  .burst.show { opacity: 1; transform: translate(-50%,-50%) scale(1.2); }
+</style>
+</head>
+<body>
+
+<!-- ===== Home page: categories ===== -->
+<div class="page" id="page-home">
+  <header>
+    <div class="title-row"><h1>带齐了吗？</h1></div>
+    <div class="subtitle">出门前点一点，再也不落东西 ✨</div>
+  </header>
+  <div class="scroll" id="cat-list"></div>
+  <button class="fab" id="fab-add-cat" aria-label="添加分类">+</button>
+</div>
+
+<!-- ===== Detail page: items ===== -->
+<div class="page" id="page-detail">
+  <div class="detail-head">
+    <button class="back-btn" id="btn-back">‹</button>
+    <div class="detail-title">
+      <h2 id="detail-name">分类</h2>
+      <div class="sub" id="detail-sub"></div>
+    </div>
+    <button class="reset-btn" id="btn-reset">重置</button>
+  </div>
+  <div class="checkall-wrap">
+    <button class="checkall-btn" id="btn-checkall">一键全带齐 ✓</button>
+  </div>
+  <div class="scroll" id="item-list"></div>
+  <button class="fab" id="fab-add-item" aria-label="添加物品">+</button>
+</div>
+
+<!-- ===== Add modal ===== -->
+<div class="modal-mask" id="modal-mask">
+  <div class="modal">
+    <h3 id="modal-title">添加</h3>
+    <input type="text" id="modal-input" placeholder="输入名称…" maxlength="20" autocomplete="off">
+    <div class="emoji-row" id="emoji-row" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">取消</button>
+      <button class="btn-ok" id="modal-ok">添加</button>
+    </div>
+  </div>
+</div>
+
+<div class="burst" id="burst">🎉</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORE_KEY = 'daiqilema_v1';
+  var EMOJIS = ['💼','🏠','🛒','🏋️','✈️','🏕️','📚','💊','👶','🐶','🚗','🎒'];
+
+  // ---------- State ----------
+  var state = load();
+  var currentCatId = null;
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return {
+      cats: [
+        { id: uid(), name: '上班', icon: '💼', items: [
+          { id: uid(), name: '手机', checked: false },
+          { id: uid(), name: '钥匙', checked: false },
+          { id: uid(), name: '工牌', checked: false },
+          { id: uid(), name: '耳机', checked: false }
+        ]},
+        { id: uid(), name: '购物清单', icon: '🛒', items: [] }
+      ]
+    };
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function uid() { return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+  // ---------- DOM ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var catList = $('cat-list'), itemList = $('item-list');
+  var pageDetail = $('page-detail');
+  var modalMask = $('modal-mask'), modalInput = $('modal-input'), modalTitle = $('modal-title'), emojiRow = $('emoji-row');
+  var toast = $('toast'), burst = $('burst');
+
+  var modalMode = null; // 'cat' | 'item'
+  var pickedEmoji = EMOJIS[0];
+
+  // ---------- Helpers ----------
+  function vibrate(ms) { if (navigator.vibrate) navigator.vibrate(ms || 10); }
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { toast.classList.remove('show'); }, 1800);
+  }
+  function celebrate() {
+    burst.classList.remove('show');
+    void burst.offsetWidth;
+    burst.classList.add('show');
+    setTimeout(function () { burst.classList.remove('show'); }, 900);
+    vibrate(30);
+  }
+  function findCat(id) {
+    for (var i = 0; i < state.cats.length; i++) if (state.cats[i].id === id) return state.cats[i];
+    return null;
+  }
+  var ICON_COLORS = ['#6C5CE7','#e17055','#00b894','#0984e3','#e84393','#fdcb6e','#00cec9','#d63031','#a29bfe','#55efc4','#ff7675','#74b9ff'];
+  function iconColor(name) {
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return ICON_COLORS[h % ICON_COLORS.length];
+  }
+
+  // ---------- Render: categories ----------
+  function renderCats() {
+    catList.innerHTML = '';
+    if (!state.cats.length) {
+      catList.innerHTML = '<div class="empty"><span class="emoji">🎒</span><p>还没有分类<br>点右下角 + 新建一个吧，比如「上班」「健身」</p></div>';
+      return;
+    }
+    state.cats.forEach(function (cat) {
+      var total = cat.items.length;
+      var done = cat.items.filter(function (it) { return it.checked; }).length;
+      var pct = total ? Math.round(done / total * 100) : 0;
+      var allDone = total > 0 && done === total;
+
+      var card = document.createElement('div');
+      card.className = 'cat-card';
+      var color = iconColor(cat.name);
+      card.innerHTML =
+        '<div class="cat-icon" style="background:' + color + '22">' + (cat.icon || '📋') + '</div>' +
+        '<div class="cat-info">' +
+          '<div class="cat-name">' + esc(cat.name) + '</div>' +
+          '<div class="cat-progress-text' + (allDone ? ' done' : '') + '">' +
+            (total === 0 ? '还没有物品' : allDone ? '✓ 全部带齐啦！' : done + ' / ' + total + ' 已确认') +
+          '</div>' +
+          '<div class="progress-bar"><div class="progress-fill' + (allDone ? ' full' : '') + '" style="width:' + pct + '%"></div></div>' +
+        '</div>' +
+        '<button class="cat-del" aria-label="删除">✕</button>';
+
+      card.addEventListener('click', function (e) {
+        if (e.target.classList.contains('cat-del')) return;
+        vibrate(8);
+        openCat(cat.id);
+      });
+      card.querySelector('.cat-del').addEventListener('click', function (e) {
+        e.stopPropagation();
+        vibrate(8);
+        if (confirm('删除分类「' + cat.name + '」及里面的所有物品？')) {
+          state.cats = state.cats.filter(function (c) { return c.id !== cat.id; });
+          save(); renderCats();
+          showToast('已删除');
+        }
+      });
+      catList.appendChild(card);
+    });
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------- Render: detail ----------
+  function renderDetail() {
+    var cat = findCat(currentCatId);
+    if (!cat) { closeDetail(); return; }
+    $('detail-name').textContent = (cat.icon ? cat.icon + ' ' : '') + cat.name;
+
+    var total = cat.items.length;
+    var done = cat.items.filter(function (it) { return it.checked; }).length;
+    $('detail-sub').textContent = total === 0 ? '添加需要带的东西' : (done === total ? '🎉 全部带齐，出发！' : '已确认 ' + done + ' / ' + total);
+
+    var allBtn = $('btn-checkall');
+    var allDone = total > 0 && done === total;
+    allBtn.textContent = allDone ? '全部带齐啦 🎉' : '一键全带齐 ✓';
+    allBtn.classList.toggle('all-done', allDone);
+    allBtn.style.opacity = total === 0 ? '.4' : '1';
+
+    itemList.innerHTML = '';
+    if (!total) {
+      itemList.innerHTML = '<div class="empty"><span class="emoji">📝</span><p>这个分类还是空的<br>点右下角 + 添加要带的东西</p></div>';
+      return;
+    }
+    cat.items.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'item-row' + (item.checked ? ' checked' : '');
+      row.innerHTML =
+        '<button class="check-btn" aria-label="确认">' +
+          '<svg viewBox="0 0 24 24" fill="none"><path d="M4 12.5 L10 18.5 L20 6.5" stroke="#0f1115" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '</button>' +
+        '<div class="item-name">' + esc(item.name) + '</div>' +
+        '<button class="item-del" aria-label="删除">✕</button>';
+
+      row.querySelector('.check-btn').addEventListener('click', function () {
+        item.checked = !item.checked;
+        vibrate(item.checked ? 15 : 6);
+        save();
+        var cat2 = findCat(currentCatId);
+        var wasAllDone = row.classList.contains('checked');
+        renderDetail();
+        if (item.checked) {
+          var t = cat2.items.length;
+          var d = cat2.items.filter(function (it) { return it.checked; }).length;
+          if (t > 0 && d === t) { celebrate(); showToast('🎉 全部带齐，放心出发！'); }
+        }
+      });
+      row.querySelector('.item-del').addEventListener('click', function () {
+        vibrate(8);
+        cat.items = cat.items.filter(function (it) { return it.id !== item.id; });
+        save(); renderDetail();
+      });
+      itemList.appendChild(row);
+    });
+  }
+
+  // ---------- Navigation ----------
+  function openCat(id) {
+    currentCatId = id;
+    renderDetail();
+    pageDetail.classList.add('open');
+  }
+  function closeDetail() {
+    pageDetail.classList.remove('open');
+    currentCatId = null;
+    renderCats();
+  }
+  $('btn-back').addEventListener('click', function () { vibrate(6); closeDetail(); });
+
+  $('btn-reset').addEventListener('click', function () {
+    var cat = findCat(currentCatId);
+    if (!cat || !cat.items.length) return;
+    vibrate(10);
+    cat.items.forEach(function (it) { it.checked = false; });
+    save(); renderDetail();
+    showToast('已重置，重新点一遍吧');
+  });
+
+  $('btn-checkall').addEventListener('click', function () {
+    var cat = findCat(currentCatId);
+    if (!cat || !cat.items.length) return;
+    var allDone = cat.items.every(function (it) { return it.checked; });
+    vibrate(20);
+    cat.items.forEach(function (it) { it.checked = !allDone; });
+    save(); renderDetail();
+    if (!allDone) { celebrate(); showToast('🎉 全部带齐，放心出发！'); }
+  });
+
+  // ---------- Modal ----------
+  function openModal(mode) {
+    modalMode = mode;
+    modalInput.value = '';
+    if (mode === 'cat') {
+      modalTitle.textContent = '新建分类';
+      modalInput.placeholder = '例如：上班、下班、买菜…';
+      emojiRow.style.display = 'flex';
+      renderEmojiRow();
+    } else {
+      modalTitle.textContent = '添加物品';
+      modalInput.placeholder = '例如：钥匙、工牌、充电器…';
+      emojiRow.style.display = 'none';
+    }
+    modalMask.classList.add('open');
+    setTimeout(function () { modalInput.focus(); }, 380);
+  }
+  function closeModal() {
+    modalMask.classList.remove('open');
+    modalInput.blur();
+  }
+  function renderEmojiRow() {
+    emojiRow.innerHTML = '';
+    EMOJIS.forEach(function (em) {
+      var b = document.createElement('button');
+      b.className = 'emoji-pick' + (em === pickedEmoji ? ' sel' : '');
+      b.type = 'button';
+      b.textContent = em;
+      b.addEventListener('click', function () {
+        pickedEmoji = em;
+        vibrate(6);
+        emojiRow.querySelectorAll('.emoji-pick').forEach(function (x) { x.classList.remove('sel'); });
+        b.classList.add('sel');
+      });
+      emojiRow.appendChild(b);
+    });
+  }
+
+  $('fab-add-cat').addEventListener('click', function () { vibrate(10); openModal('cat'); });
+  $('fab-add-item').addEventListener('click', function () { vibrate(10); openModal('item'); });
+  $('modal-cancel').addEventListener('click', closeModal);
+  modalMask.addEventListener('click', function (e) { if (e.target === modalMask) closeModal(); });
+
+  function submitModal() {
+    var name = modalInput.value.trim();
+    if (!name) { modalInput.focus(); return; }
+    vibrate(12);
+    if (modalMode === 'cat') {
+      state.cats.push({ id: uid(), name: name, icon: pickedEmoji, items: [] });
+      save(); renderCats();
+      showToast('已添加分类「' + name + '」');
+    } else {
+      var cat = findCat(currentCatId);
+      if (cat) {
+        cat.items.push({ id: uid(), name: name, checked: false });
+        save(); renderDetail();
+      }
+    }
+    closeModal();
+  }
+  $('modal-ok').addEventListener('click', submitModal);
+  modalInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitModal(); });
+
+  // ---------- Offline cache ----------
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+
+  // ---------- Init ----------
+  renderCats();
+})();
+</script>
+</body>
+</html>
