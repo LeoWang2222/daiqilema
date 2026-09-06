@@ -3,11 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="description" content="出门前点一点，再也不落东西。手机、钥匙、工牌……分类清单帮你带齐。">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="带齐了吗">
-<meta name="theme-color" content="#f5f6fa">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f6fa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#12141b">
 <title>带齐了吗？</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <style>
   :root {
@@ -60,6 +65,16 @@
     -webkit-text-fill-color: transparent;
   }
   .subtitle { color: var(--sub); font-size: 14px; margin-top: 6px; }
+  .head-btn {
+    width: 40px; height: 40px; border-radius: 14px;
+    background: var(--card); border: none; color: var(--text);
+    font-size: 20px; cursor: pointer; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(60,60,120,.08);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s;
+    line-height: 1;
+  }
+  .head-btn:active { transform: scale(.9); }
 
   /* ===== Scroll area ===== */
   .scroll {
@@ -87,7 +102,14 @@
     font-size: 26px; flex-shrink: 0;
   }
   .cat-info { flex: 1; min-width: 0; }
+  .cat-name-row { display: flex; align-items: center; gap: 8px; }
   .cat-name { font-size: 18px; font-weight: 700; }
+  .daily-badge {
+    font-size: 11px; font-weight: 700; color: var(--accent);
+    background: rgba(108,92,231,.1);
+    padding: 2px 8px; border-radius: 100px;
+    flex-shrink: 0;
+  }
   .cat-progress-text { font-size: 13px; color: var(--sub); margin-top: 4px; }
   .cat-progress-text.done { color: #0fa77e; font-weight: 600; }
   .progress-bar {
@@ -119,8 +141,8 @@
     display: flex; align-items: center; gap: 14px;
     transition: background .3s, opacity .3s;
     box-shadow: 0 3px 12px rgba(60,60,120,.07);
-    animation: slideIn .3s cubic-bezier(.32,.72,.28,1);
   }
+  .item-row.enter { animation: slideIn .3s cubic-bezier(.32,.72,.28,1) backwards; }
   @keyframes slideIn {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
@@ -202,6 +224,7 @@
     transition: transform .15s;
   }
   .reset-btn:active { transform: scale(.92); }
+  .reset-btn.on { background: rgba(108,92,231,.12); color: var(--accent); font-weight: 700; }
 
   /* ===== Big check-all button ===== */
   .checkall-wrap { padding: 4px 20px 0; flex-shrink: 0; }
@@ -251,6 +274,20 @@
     -webkit-user-select: text; user-select: text;
   }
   .modal input[type="text"]:focus { border-color: var(--accent); background:#fff; }
+  .tpl-label { font-size: 13px; color: var(--sub); margin-top: 16px; }
+  .tpl-row {
+    display: flex; gap: 8px; margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .tpl-chip {
+    padding: 9px 14px; border-radius: 100px;
+    border: 1.5px solid var(--line); background: var(--bg);
+    font-size: 14px; font-weight: 600; color: var(--text);
+    cursor: pointer;
+    transition: transform .15s, border-color .2s, background .2s;
+  }
+  .tpl-chip:active { transform: scale(.92); }
+  .tpl-chip.sel { border-color: var(--accent); background: rgba(108,92,231,.1); color: var(--accent); }
   .emoji-row {
     display: flex; gap: 10px; margin: 16px 0 4px;
     flex-wrap: wrap;
@@ -277,6 +314,16 @@
     box-shadow: 0 4px 14px rgba(108,92,231,.3);
   }
   .btn-cancel:active, .btn-ok:active { transform: scale(.95); }
+  .settings-tip { font-size: 13px; color: var(--sub); line-height: 1.6; margin: -8px 0 16px; }
+  .sheet-btn {
+    width: 100%; padding: 16px; border-radius: 16px;
+    border: none; background: var(--card2); color: var(--text);
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    margin-bottom: 10px; text-align: center;
+    transition: transform .15s;
+  }
+  .sheet-btn:active { transform: scale(.97); }
+  .sheet-btn.wide { margin-bottom: 0; margin-top: 6px; }
 
   /* ===== Toast ===== */
   .toast {
@@ -291,8 +338,17 @@
     z-index: 200;
     box-shadow: 0 8px 24px rgba(40,40,80,.3);
     white-space: nowrap;
+    display: flex; align-items: center; gap: 12px;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast-undo {
+    display: none; border: none; cursor: pointer;
+    background: rgba(255,255,255,.16); color: #fff;
+    padding: 5px 14px; border-radius: 100px;
+    font-size: 13px; font-weight: 700;
+    pointer-events: auto;
+  }
+  .toast.can-undo .toast-undo { display: inline-block; }
 
   /* celebrate burst */
   .burst {
@@ -303,6 +359,29 @@
     transition: all .5s cubic-bezier(.34,1.56,.64,1);
   }
   .burst.show { opacity: 1; transform: translate(-50%,-50%) scale(1.2); }
+
+  /* ===== Dark mode ===== */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12141b;
+      --card: #1c1f2b;
+      --card2: #252a3a;
+      --text: #eef0f8;
+      --sub: #9299b0;
+      --line: #2e3448;
+    }
+    html { color-scheme: dark; }
+    h1 { background: linear-gradient(120deg, #dfe3ff, var(--accent2)); -webkit-background-clip: text; background-clip: text; }
+    .cat-card, .item-row { box-shadow: 0 4px 16px rgba(0,0,0,.35); }
+    .progress-bar { background: #262b3d; }
+    .item-row.checked { background: #232737; }
+    .check-btn { background: var(--card); border-color: #3a4159; }
+    .back-btn, .reset-btn, .head-btn { box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+    .reset-btn.on { background: rgba(142,123,255,.16); color: var(--accent2); }
+    .btn-cancel { background: #262b3d; color: var(--sub); }
+    .modal input[type="text"]:focus { background: var(--card2); }
+    .toast { background: rgba(58,63,88,.96); }
+  }
 </style>
 </head>
 <body>
@@ -310,7 +389,10 @@
 <!-- ===== Home page: categories ===== -->
 <div class="page" id="page-home">
   <header>
-    <div class="title-row"><h1>带齐了吗？</h1></div>
+    <div class="title-row">
+      <h1>带齐了吗？</h1>
+      <button class="head-btn" id="btn-settings" aria-label="备份与恢复">⋯</button>
+    </div>
     <div class="subtitle">出门前点一点，再也不落东西 ✨</div>
   </header>
   <div class="scroll" id="cat-list"></div>
@@ -325,6 +407,7 @@
       <h2 id="detail-name">分类</h2>
       <div class="sub" id="detail-sub"></div>
     </div>
+    <button class="reset-btn" id="btn-daily" title="每天第一次打开时，自动清空勾选">每天</button>
     <button class="reset-btn" id="btn-reset">重置</button>
   </div>
   <div class="checkall-wrap">
@@ -339,6 +422,10 @@
   <div class="modal">
     <h3 id="modal-title">添加</h3>
     <input type="text" id="modal-input" placeholder="输入名称…" maxlength="20" autocomplete="off">
+    <div id="tpl-wrap" style="display:none">
+      <div class="tpl-label">从模板一键创建（自带常用物品）</div>
+      <div class="tpl-row" id="tpl-row"></div>
+    </div>
     <div class="emoji-row" id="emoji-row" style="display:none"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="modal-cancel">取消</button>
@@ -347,8 +434,20 @@
   </div>
 </div>
 
+<!-- ===== Settings modal ===== -->
+<div class="modal-mask" id="settings-mask">
+  <div class="modal">
+    <h3>备份与恢复</h3>
+    <p class="settings-tip">清单只保存在这台设备上。换手机或清除浏览器数据前，记得先导出备份。</p>
+    <button class="sheet-btn" id="btn-export">📤 导出备份（.json 文件）</button>
+    <button class="sheet-btn" id="btn-import">📥 从备份文件导入</button>
+    <button class="btn-cancel sheet-btn wide" id="settings-close">关闭</button>
+    <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+  </div>
+</div>
+
 <div class="burst" id="burst">🎉</div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast"><span id="toast-msg"></span><button class="toast-undo" id="toast-undo" type="button">撤销</button></div>
 
 <script>
 (function () {
@@ -356,6 +455,14 @@
 
   var STORE_KEY = 'daiqilema_v1';
   var EMOJIS = ['💼','🏠','🛒','🏋️','✈️','🏕️','📚','💊','👶','🐶','🚗','🎒'];
+  var TEMPLATES = [
+    { name: '出差', icon: '✈️', items: ['身份证','手机充电器','充电宝','笔记本电脑','耳机','换洗衣物','洗漱包'] },
+    { name: '旅行', icon: '🧳', items: ['身份证','充电器','换洗衣物','洗漱包','防晒霜','雨伞','常用药','充电宝'] },
+    { name: '健身', icon: '🏋️', items: ['运动鞋','毛巾','水杯','耳机','换洗衣物'] },
+    { name: '露营', icon: '🏕️', items: ['帐篷','睡袋','防潮垫','手电筒','防蚊液','饮用水','炉具'] },
+    { name: '上学', icon: '🎒', items: ['书包','课本','文具盒','水杯','作业本','钥匙'] },
+    { name: '带娃', icon: '👶', items: ['奶瓶','纸尿裤','湿巾','备用衣服','小玩具','推车'] }
+  ];
 
   // ---------- State ----------
   var state = load();
@@ -368,13 +475,13 @@
     } catch (e) {}
     return {
       cats: [
-        { id: uid(), name: '上班', icon: '💼', items: [
+        { id: uid(), name: '上班', icon: '💼', autoReset: true, lastResetOn: null, items: [
           { id: uid(), name: '手机', checked: false },
           { id: uid(), name: '钥匙', checked: false },
           { id: uid(), name: '工牌', checked: false },
           { id: uid(), name: '耳机', checked: false }
         ]},
-        { id: uid(), name: '购物清单', icon: '🛒', items: [] }
+        { id: uid(), name: '购物清单', icon: '🛒', autoReset: false, lastResetOn: null, items: [] }
       ]
     };
   }
@@ -382,24 +489,38 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
   }
   function uid() { return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
 
   // ---------- DOM ----------
   var $ = function (id) { return document.getElementById(id); };
   var catList = $('cat-list'), itemList = $('item-list');
   var pageDetail = $('page-detail');
-  var modalMask = $('modal-mask'), modalInput = $('modal-input'), modalTitle = $('modal-title'), emojiRow = $('emoji-row');
-  var toast = $('toast'), burst = $('burst');
+  var modalMask = $('modal-mask'), modalInput = $('modal-input'), modalTitle = $('modal-title');
+  var emojiRow = $('emoji-row'), tplWrap = $('tpl-wrap'), tplRow = $('tpl-row');
+  var settingsMask = $('settings-mask');
+  var toastEl = $('toast'), toastMsg = $('toast-msg'), toastUndoBtn = $('toast-undo');
+  var burst = $('burst');
 
   var modalMode = null; // 'cat' | 'item'
   var pickedEmoji = EMOJIS[0];
+  var pendingTpl = null;
 
   // ---------- Helpers ----------
   function vibrate(ms) { if (navigator.vibrate) navigator.vibrate(ms || 10); }
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(function () { toast.classList.remove('show'); }, 1800);
+  function showToast(msg, undoFn) {
+    toastMsg.textContent = msg;
+    toastEl.classList.toggle('can-undo', !!undoFn);
+    toastUndoBtn.onclick = undoFn ? function () {
+      clearTimeout(toastEl._t);
+      toastEl.classList.remove('show');
+      undoFn();
+    } : null;
+    toastEl.classList.add('show');
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(function () { toastEl.classList.remove('show'); }, undoFn ? 5000 : 1800);
   }
   function celebrate() {
     burst.classList.remove('show');
@@ -417,6 +538,31 @@
     var h = 0;
     for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
     return ICON_COLORS[h % ICON_COLORS.length];
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // 每日自动重置：跨天第一次碰到这个分类时清空勾选
+  function applyDailyReset(cat) {
+    if (!cat || !cat.autoReset || cat.lastResetOn === todayKey()) return false;
+    var had = cat.items.some(function (it) { return it.checked; });
+    cat.items.forEach(function (it) { it.checked = false; });
+    cat.lastResetOn = todayKey();
+    save();
+    return had;
+  }
+
+  // 打开分类时，未确认的排前面，一眼看到还差什么
+  function sinkChecked(cat) {
+    var first = [], rest = [];
+    cat.items.forEach(function (it) { (it.checked ? rest : first).push(it); });
+    if (first.length && rest.length) {
+      cat.items = first.concat(rest);
+      save();
+    }
   }
 
   // ---------- Render: categories ----------
@@ -438,7 +584,10 @@
       card.innerHTML =
         '<div class="cat-icon" style="background:' + color + '18">' + (cat.icon || '📋') + '</div>' +
         '<div class="cat-info">' +
-          '<div class="cat-name">' + esc(cat.name) + '</div>' +
+          '<div class="cat-name-row">' +
+            '<div class="cat-name">' + esc(cat.name) + '</div>' +
+            (cat.autoReset ? '<span class="daily-badge">每天重置</span>' : '') +
+          '</div>' +
           '<div class="cat-progress-text' + (allDone ? ' done' : '') + '">' +
             (total === 0 ? '还没有物品' : allDone ? '✓ 全部带齐啦！' : done + ' / ' + total + ' 已确认') +
           '</div>' +
@@ -454,28 +603,21 @@
       card.querySelector('.cat-del').addEventListener('click', function (e) {
         e.stopPropagation();
         vibrate(8);
-        if (confirm('删除分类「' + cat.name + '」及里面的所有物品？')) {
-          state.cats = state.cats.filter(function (c) { return c.id !== cat.id; });
+        var idx = state.cats.indexOf(cat);
+        if (idx < 0) return;
+        state.cats.splice(idx, 1);
+        save(); renderCats();
+        showToast('已删除「' + cat.name + '」', function () {
+          state.cats.splice(Math.min(idx, state.cats.length), 0, cat);
           save(); renderCats();
-          showToast('已删除');
-        }
+        });
       });
       catList.appendChild(card);
     });
   }
 
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-
   // ---------- Render: detail ----------
-  function renderDetail() {
-    var cat = findCat(currentCatId);
-    if (!cat) { closeDetail(); return; }
-    $('detail-name').textContent = (cat.icon ? cat.icon + ' ' : '') + cat.name;
-
+  function updateDetailBar(cat) {
     var total = cat.items.length;
     var done = cat.items.filter(function (it) { return it.checked; }).length;
     $('detail-sub').textContent = total === 0 ? '添加需要带的东西' : (done === total ? '🎉 全部带齐，出发！' : '已确认 ' + done + ' / ' + total);
@@ -485,15 +627,28 @@
     allBtn.textContent = allDone ? '全部带齐啦 🎉' : '一键全带齐 ✓';
     allBtn.classList.toggle('all-done', allDone);
     allBtn.style.opacity = total === 0 ? '.4' : '1';
+  }
+
+  // animateId: 'all' = 进场动画（打开分类时）；某条目 id = 只给新加的那条动画；其余情况不播动画
+  function renderDetail(animateId) {
+    var cat = findCat(currentCatId);
+    if (!cat) { closeDetail(); return; }
+    $('detail-name').textContent = (cat.icon ? cat.icon + ' ' : '') + cat.name;
+    $('btn-daily').classList.toggle('on', !!cat.autoReset);
+    updateDetailBar(cat);
 
     itemList.innerHTML = '';
-    if (!total) {
+    if (!cat.items.length) {
       itemList.innerHTML = '<div class="empty"><span class="emoji">📝</span><p>这个分类还是空的<br>点右下角 + 添加要带的东西</p></div>';
       return;
     }
-    cat.items.forEach(function (item) {
+    cat.items.forEach(function (item, i) {
       var row = document.createElement('div');
       row.className = 'item-row' + (item.checked ? ' checked' : '');
+      if (animateId === 'all' || item.id === animateId) {
+        row.classList.add('enter');
+        if (animateId === 'all') row.style.animationDelay = Math.min(i * 35, 350) + 'ms';
+      }
       row.innerHTML =
         '<button class="check-btn" aria-label="确认">' +
           '<svg viewBox="0 0 24 24" fill="none"><path d="M4 12.5 L10 18.5 L20 6.5" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -505,18 +660,27 @@
         item.checked = !item.checked;
         vibrate(item.checked ? 15 : 6);
         save();
-        var cat2 = findCat(currentCatId);
-        renderDetail();
+        row.classList.toggle('checked', item.checked);
+        updateDetailBar(cat);
         if (item.checked) {
-          var t = cat2.items.length;
-          var d = cat2.items.filter(function (it) { return it.checked; }).length;
+          var t = cat.items.length;
+          var d = cat.items.filter(function (it) { return it.checked; }).length;
           if (t > 0 && d === t) { celebrate(); showToast('🎉 全部带齐，放心出发！'); }
         }
       });
       row.querySelector('.item-del').addEventListener('click', function () {
         vibrate(8);
-        cat.items = cat.items.filter(function (it) { return it.id !== item.id; });
+        var idx = cat.items.indexOf(item);
+        if (idx < 0) return;
+        cat.items.splice(idx, 1);
         save(); renderDetail();
+        showToast('已删除「' + item.name + '」', function () {
+          var c = findCat(cat.id);
+          if (!c) return;
+          c.items.splice(Math.min(idx, c.items.length), 0, item);
+          save();
+          if (c.id === currentCatId) renderDetail();
+        });
       });
       itemList.appendChild(row);
     });
@@ -525,7 +689,12 @@
   // ---------- Navigation ----------
   function openCat(id) {
     currentCatId = id;
-    renderDetail();
+    var cat = findCat(id);
+    if (cat) {
+      if (applyDailyReset(cat)) showToast('☀️ 新的一天，清单已自动重置');
+      sinkChecked(cat);
+    }
+    renderDetail('all');
     pageDetail.classList.add('open');
   }
   function closeDetail() {
@@ -544,6 +713,22 @@
     showToast('已重置，重新点一遍吧');
   });
 
+  $('btn-daily').addEventListener('click', function () {
+    var cat = findCat(currentCatId);
+    if (!cat) return;
+    vibrate(10);
+    cat.autoReset = !cat.autoReset;
+    if (cat.autoReset) {
+      cat.lastResetOn = todayKey();
+      var had = cat.items.some(function (it) { return it.checked; });
+      cat.items.forEach(function (it) { it.checked = false; });
+      showToast(had ? '已开启：明天打开会自动清零' : '已开启每天自动重置');
+    } else {
+      showToast('已关闭每天自动重置');
+    }
+    save(); renderDetail();
+  });
+
   $('btn-checkall').addEventListener('click', function () {
     var cat = findCat(currentCatId);
     if (!cat || !cat.items.length) return;
@@ -554,18 +739,23 @@
     if (!allDone) { celebrate(); showToast('🎉 全部带齐，放心出发！'); }
   });
 
-  // ---------- Modal ----------
+  // ---------- Add modal ----------
   function openModal(mode) {
     modalMode = mode;
+    pendingTpl = null;
     modalInput.value = '';
     if (mode === 'cat') {
       modalTitle.textContent = '新建分类';
       modalInput.placeholder = '例如：上班、下班、买菜…';
+      pickedEmoji = EMOJIS[0];
+      tplWrap.style.display = 'block';
+      renderTplRow();
       emojiRow.style.display = 'flex';
       renderEmojiRow();
     } else {
       modalTitle.textContent = '添加物品';
       modalInput.placeholder = '例如：钥匙、工牌、充电器…';
+      tplWrap.style.display = 'none';
       emojiRow.style.display = 'none';
     }
     modalMask.classList.add('open');
@@ -574,6 +764,25 @@
   function closeModal() {
     modalMask.classList.remove('open');
     modalInput.blur();
+  }
+  function renderTplRow() {
+    tplRow.innerHTML = '';
+    TEMPLATES.forEach(function (t) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tpl-chip' + (pendingTpl === t ? ' sel' : '');
+      b.textContent = t.icon + ' ' + t.name;
+      b.addEventListener('click', function () {
+        vibrate(6);
+        if (pendingTpl === t) { pendingTpl = null; b.classList.remove('sel'); return; }
+        pendingTpl = t;
+        modalInput.value = t.name;
+        pickedEmoji = t.icon;
+        renderTplRow();
+        renderEmojiRow();
+      });
+      tplRow.appendChild(b);
+    });
   }
   function renderEmojiRow() {
     emojiRow.innerHTML = '';
@@ -602,14 +811,18 @@
     if (!name) { modalInput.focus(); return; }
     vibrate(12);
     if (modalMode === 'cat') {
-      state.cats.push({ id: uid(), name: name, icon: pickedEmoji, items: [] });
+      var items = pendingTpl ? pendingTpl.items.map(function (n) {
+        return { id: uid(), name: n, checked: false };
+      }) : [];
+      state.cats.push({ id: uid(), name: name, icon: pickedEmoji, autoReset: false, lastResetOn: null, items: items });
       save(); renderCats();
-      showToast('已添加分类「' + name + '」');
+      showToast(pendingTpl ? '已创建「' + name + '」，' + items.length + ' 件物品待确认' : '已添加分类「' + name + '」');
     } else {
       var cat = findCat(currentCatId);
       if (cat) {
-        cat.items.push({ id: uid(), name: name, checked: false });
-        save(); renderDetail();
+        var nid = uid();
+        cat.items.push({ id: nid, name: name, checked: false });
+        save(); renderDetail(nid);
       }
     }
     closeModal();
@@ -617,12 +830,81 @@
   $('modal-ok').addEventListener('click', submitModal);
   modalInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitModal(); });
 
+  // ---------- Settings: backup & restore ----------
+  $('btn-settings').addEventListener('click', function () { vibrate(8); settingsMask.classList.add('open'); });
+  function closeSettings() { settingsMask.classList.remove('open'); }
+  $('settings-close').addEventListener('click', closeSettings);
+  settingsMask.addEventListener('click', function (e) { if (e.target === settingsMask) closeSettings(); });
+
+  $('btn-export').addEventListener('click', function () {
+    var payload = { app: 'daiqilema', version: 1, exportedAt: new Date().toISOString(), cats: state.cats };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '带齐了吗备份-' + todayKey() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    closeSettings();
+    showToast('备份文件已导出');
+  });
+
+  function normalizeCat(c) {
+    if (!c || typeof c.name !== 'string' || !c.name.trim()) return null;
+    return {
+      id: uid(),
+      name: c.name.trim().slice(0, 20),
+      icon: (typeof c.icon === 'string' && c.icon) ? c.icon : '📋',
+      autoReset: !!c.autoReset,
+      lastResetOn: null,
+      items: (Array.isArray(c.items) ? c.items : []).map(function (it) {
+        var n = it && typeof it.name === 'string' ? it.name.trim().slice(0, 20) : '';
+        return { id: uid(), name: n || '物品', checked: !!(it && it.checked) };
+      })
+    };
+  }
+
+  $('btn-import').addEventListener('click', function () { $('import-file').click(); });
+  $('import-file').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    this.value = '';
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(reader.result);
+        var rawCats = Array.isArray(data) ? data : (data && Array.isArray(data.cats) ? data.cats : null);
+        if (!rawCats) throw new Error('bad format');
+        if (!rawCats.length) { showToast('备份文件里没有分类'); return; }
+        var cats = rawCats.map(normalizeCat).filter(Boolean);
+        if (!cats.length) throw new Error('bad format');
+        var prev = state.cats;
+        state.cats = cats;
+        save(); renderCats(); closeSettings();
+        showToast('已导入 ' + cats.length + ' 个分类', function () {
+          state.cats = prev;
+          save(); renderCats();
+        });
+      } catch (e) {
+        showToast('导入失败：文件格式不对');
+      }
+    };
+    reader.readAsText(f);
+  });
+
   // ---------- Offline cache ----------
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    var hadSW = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.register('sw.js').catch(function () {});
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (hadSW) showToast('✨ 已更新到最新版本');
+      hadSW = true;
+    });
   }
 
   // ---------- Init ----------
+  state.cats.forEach(function (c) { applyDailyReset(c); });
   renderCats();
 })();
 </script>

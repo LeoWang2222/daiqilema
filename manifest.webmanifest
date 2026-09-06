@@ -1,0 +1,16 @@
+{
+  "name": "带齐了吗？",
+  "short_name": "带齐了吗",
+  "description": "出门前点一点，再也不落东西。手机、钥匙、工牌……分类清单帮你带齐。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f6fa",
+  "theme_color": "#f5f6fa",
+  "icons": [
+    { "src": "icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
