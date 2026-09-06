@@ -510,17 +510,18 @@
 
   // ---------- Helpers ----------
   function vibrate(ms) { if (navigator.vibrate) navigator.vibrate(ms || 10); }
-  function showToast(msg, undoFn) {
+  function showToast(msg, actionFn, actionLabel) {
     toastMsg.textContent = msg;
-    toastEl.classList.toggle('can-undo', !!undoFn);
-    toastUndoBtn.onclick = undoFn ? function () {
+    toastEl.classList.toggle('can-undo', !!actionFn);
+    toastUndoBtn.textContent = actionLabel || '撤销';
+    toastUndoBtn.onclick = actionFn ? function () {
       clearTimeout(toastEl._t);
       toastEl.classList.remove('show');
-      undoFn();
+      actionFn();
     } : null;
     toastEl.classList.add('show');
     clearTimeout(toastEl._t);
-    toastEl._t = setTimeout(function () { toastEl.classList.remove('show'); }, undoFn ? 5000 : 1800);
+    toastEl._t = setTimeout(function () { toastEl.classList.remove('show'); }, actionFn ? 8000 : 1800);
   }
   function celebrate() {
     burst.classList.remove('show');
@@ -896,11 +897,24 @@
   // ---------- Offline cache ----------
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
     var hadSW = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+    var swReg = null;
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (r) {
+      swReg = r;
+    }).catch(function () {});
+
+    // 新 SW 接管后提示刷新（主屏幕应用没有刷新按钮，必须给入口）
     navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (hadSW) showToast('✨ 已更新到最新版本');
-      hadSW = true;
+      if (!hadSW) { hadSW = true; return; }
+      showToast('发现新版本', function () { location.reload(); }, '刷新');
     });
+
+    // iOS 主屏幕应用从后台恢复时不会重新导航，要主动检查更新
+    function checkSWUpdate() { if (swReg) swReg.update().catch(function () {}); }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') checkSWUpdate();
+    });
+    window.addEventListener('pageshow', function (e) { if (e.persisted) checkSWUpdate(); });
+    setInterval(checkSWUpdate, 60 * 60 * 1000);
   }
 
   // ---------- Init ----------
