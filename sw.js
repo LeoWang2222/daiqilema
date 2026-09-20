@@ -1,4 +1,4 @@
-var CACHE = 'daiqilema-v4';
+var CACHE = 'daiqilema-v5';
 var FILES = ['./', './index.html', './icon.png', './icon-192.png', './icon-512.png', './manifest.webmanifest'];
 
 self.addEventListener('install', function (e) {

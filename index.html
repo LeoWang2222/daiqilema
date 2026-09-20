@@ -37,6 +37,10 @@
     -webkit-user-select: none;
     user-select: none;
   }
+  button:focus-visible, .item-name:focus-visible {
+    outline: 3px solid rgba(108,92,231,.38);
+    outline-offset: 2px;
+  }
 
   /* ===== Pages ===== */
   .page {
@@ -123,14 +127,14 @@
     transition: width .5s cubic-bezier(.32,.72,.28,1);
   }
   .progress-fill.full { background: linear-gradient(90deg, var(--green), #5ee8c5); }
-  .cat-del {
-    width: 34px; height: 34px; border-radius: 12px;
+  .cat-menu {
+    width: 40px; height: 40px; border-radius: 12px;
     border: none; background: transparent; color: #c3c7d4;
-    font-size: 18px; cursor: pointer; flex-shrink: 0;
+    font-size: 18px; font-weight: 700; letter-spacing: 1px; cursor: pointer; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
     transition: background .2s, color .2s;
   }
-  .cat-del:active { background: rgba(255,90,90,.12); color: #ff6b6b; }
+  .cat-menu:active { background: var(--card2); color: var(--accent); }
 
   /* ===== Item rows ===== */
   .item-row {
@@ -150,7 +154,7 @@
   .item-row.checked { background: #f2f3f9; }
   .item-row.checked .item-name { color: var(--sub); text-decoration: line-through; text-decoration-color: var(--green); }
   .check-btn {
-    width: 34px; height: 34px; border-radius: 50%;
+    width: 42px; height: 42px; border-radius: 50%;
     border: 2.5px solid #d5d9e6;
     background: #fff; cursor: pointer; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
@@ -165,14 +169,14 @@
   }
   .item-row.checked .check-btn svg { opacity: 1; transform: scale(1); }
   .check-btn:active { transform: scale(.85); }
-  .item-name { flex: 1; font-size: 17px; font-weight: 600; transition: color .3s; word-break: break-all; }
-  .item-del {
-    width: 32px; height: 32px; border-radius: 10px; border: none;
-    background: transparent; color: #c3c7d4; font-size: 16px;
+  .item-name { flex: 1; font-size: 17px; font-weight: 600; transition: color .3s; word-break: break-all; cursor: pointer; padding: 8px 0; }
+  .item-menu {
+    width: 40px; height: 40px; border-radius: 10px; border: none;
+    background: transparent; color: #c3c7d4; font-size: 18px; font-weight: 700; letter-spacing: 1px;
     cursor: pointer; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
   }
-  .item-del:active { color: #ff6b6b; }
+  .item-menu:active { background: var(--card2); color: var(--accent); }
 
   /* ===== Empty state ===== */
   .empty {
@@ -324,6 +328,10 @@
   }
   .sheet-btn:active { transform: scale(.97); }
   .sheet-btn.wide { margin-bottom: 0; margin-top: 6px; }
+  .sheet-btn.danger { color: #e5484d; background: rgba(229,72,77,.08); }
+  .action-row { display: flex; gap: 10px; }
+  .action-row .sheet-btn { flex: 1; }
+  .sheet-btn:disabled { opacity: .38; cursor: default; transform: none; }
 
   /* ===== Toast ===== */
   .toast {
@@ -382,6 +390,9 @@
     .modal input[type="text"]:focus { background: var(--card2); }
     .toast { background: rgba(58,63,88,.96); }
   }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
 </style>
 </head>
 <body>
@@ -400,7 +411,7 @@
 </div>
 
 <!-- ===== Detail page: items ===== -->
-<div class="page" id="page-detail">
+<div class="page" id="page-detail" aria-hidden="true">
   <div class="detail-head">
     <button class="back-btn" id="btn-back">‹</button>
     <div class="detail-title">
@@ -418,8 +429,8 @@
 </div>
 
 <!-- ===== Add modal ===== -->
-<div class="modal-mask" id="modal-mask">
-  <div class="modal">
+<div class="modal-mask" id="modal-mask" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <h3 id="modal-title">添加</h3>
     <input type="text" id="modal-input" placeholder="输入名称…" maxlength="20" autocomplete="off">
     <div id="tpl-wrap" style="display:none">
@@ -435,14 +446,29 @@
 </div>
 
 <!-- ===== Settings modal ===== -->
-<div class="modal-mask" id="settings-mask">
-  <div class="modal">
+<div class="modal-mask" id="settings-mask" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="备份与恢复">
     <h3>备份与恢复</h3>
     <p class="settings-tip">清单只保存在这台设备上。换手机或清除浏览器数据前，记得先导出备份。</p>
     <button class="sheet-btn" id="btn-export">📤 导出备份（.json 文件）</button>
     <button class="sheet-btn" id="btn-import">📥 从备份文件导入</button>
     <button class="btn-cancel sheet-btn wide" id="settings-close">关闭</button>
     <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+  </div>
+</div>
+
+<!-- ===== Category / item actions ===== -->
+<div class="modal-mask" id="actions-mask" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="actions-title">
+    <h3 id="actions-title">管理</h3>
+    <button class="sheet-btn" id="action-edit">编辑</button>
+    <button class="sheet-btn" id="action-copy">复制分类</button>
+    <div class="action-row">
+      <button class="sheet-btn" id="action-up">上移</button>
+      <button class="sheet-btn" id="action-down">下移</button>
+    </div>
+    <button class="sheet-btn danger" id="action-delete">删除</button>
+    <button class="btn-cancel sheet-btn wide" id="actions-close">取消</button>
   </div>
 </div>
 
@@ -497,14 +523,17 @@
   // ---------- DOM ----------
   var $ = function (id) { return document.getElementById(id); };
   var catList = $('cat-list'), itemList = $('item-list');
-  var pageDetail = $('page-detail');
+  var pageHome = $('page-home'), pageDetail = $('page-detail');
   var modalMask = $('modal-mask'), modalInput = $('modal-input'), modalTitle = $('modal-title');
   var emojiRow = $('emoji-row'), tplWrap = $('tpl-wrap'), tplRow = $('tpl-row');
   var settingsMask = $('settings-mask');
+  var actionsMask = $('actions-mask'), actionsTitle = $('actions-title');
   var toastEl = $('toast'), toastMsg = $('toast-msg'), toastUndoBtn = $('toast-undo');
   var burst = $('burst');
 
-  var modalMode = null; // 'cat' | 'item'
+  var modalMode = null; // 'cat' | 'item' | 'edit-cat' | 'edit-item'
+  var editingTargetId = null;
+  var actionTarget = null;
   var pickedEmoji = EMOJIS[0];
   var pendingTpl = null;
 
@@ -594,24 +623,19 @@
           '</div>' +
           '<div class="progress-bar"><div class="progress-fill' + (allDone ? ' full' : '') + '" style="width:' + pct + '%"></div></div>' +
         '</div>' +
-        '<button class="cat-del" aria-label="删除">✕</button>';
+        '<button class="cat-menu" aria-label="管理分类">•••</button>';
 
       card.addEventListener('click', function (e) {
-        if (e.target.classList.contains('cat-del')) return;
+        if (e.target.classList.contains('cat-menu')) return;
         vibrate(8);
         openCat(cat.id);
       });
-      card.querySelector('.cat-del').addEventListener('click', function (e) {
+      var menuBtn = card.querySelector('.cat-menu');
+      menuBtn.setAttribute('aria-label', '管理分类「' + cat.name + '」');
+      menuBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         vibrate(8);
-        var idx = state.cats.indexOf(cat);
-        if (idx < 0) return;
-        state.cats.splice(idx, 1);
-        save(); renderCats();
-        showToast('已删除「' + cat.name + '」', function () {
-          state.cats.splice(Math.min(idx, state.cats.length), 0, cat);
-          save(); renderCats();
-        });
+        openActions('cat', cat.id);
       });
       catList.appendChild(card);
     });
@@ -625,7 +649,7 @@
 
     var allBtn = $('btn-checkall');
     var allDone = total > 0 && done === total;
-    allBtn.textContent = allDone ? '全部带齐啦 🎉' : '一键全带齐 ✓';
+    allBtn.textContent = allDone ? '取消全部确认' : '一键全带齐 ✓';
     allBtn.classList.toggle('all-done', allDone);
     allBtn.style.opacity = total === 0 ? '.4' : '1';
   }
@@ -651,37 +675,41 @@
         if (animateId === 'all') row.style.animationDelay = Math.min(i * 35, 350) + 'ms';
       }
       row.innerHTML =
-        '<button class="check-btn" aria-label="确认">' +
+        '<button class="check-btn" aria-label="确认物品">' +
           '<svg viewBox="0 0 24 24" fill="none"><path d="M4 12.5 L10 18.5 L20 6.5" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         '</button>' +
-        '<div class="item-name">' + esc(item.name) + '</div>' +
-        '<button class="item-del" aria-label="删除">✕</button>';
+        '<div class="item-name" role="button" tabindex="0">' + esc(item.name) + '</div>' +
+        '<button class="item-menu" aria-label="管理物品">•••</button>';
 
-      row.querySelector('.check-btn').addEventListener('click', function () {
+      function toggleItem() {
         item.checked = !item.checked;
         vibrate(item.checked ? 15 : 6);
         save();
         row.classList.toggle('checked', item.checked);
+        var nextLabel = (item.checked ? '取消确认「' : '确认「') + item.name + '」';
+        row.querySelector('.check-btn').setAttribute('aria-label', nextLabel);
+        row.querySelector('.item-name').setAttribute('aria-label', nextLabel);
         updateDetailBar(cat);
         if (item.checked) {
           var t = cat.items.length;
           var d = cat.items.filter(function (it) { return it.checked; }).length;
           if (t > 0 && d === t) { celebrate(); showToast('🎉 全部带齐，放心出发！'); }
         }
+      }
+      var checkBtn = row.querySelector('.check-btn');
+      var itemName = row.querySelector('.item-name');
+      var itemMenu = row.querySelector('.item-menu');
+      checkBtn.setAttribute('aria-label', (item.checked ? '取消确认「' : '确认「') + item.name + '」');
+      itemName.setAttribute('aria-label', (item.checked ? '取消确认「' : '确认「') + item.name + '」');
+      itemMenu.setAttribute('aria-label', '管理物品「' + item.name + '」');
+      checkBtn.addEventListener('click', toggleItem);
+      itemName.addEventListener('click', toggleItem);
+      itemName.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleItem(); }
       });
-      row.querySelector('.item-del').addEventListener('click', function () {
+      itemMenu.addEventListener('click', function () {
         vibrate(8);
-        var idx = cat.items.indexOf(item);
-        if (idx < 0) return;
-        cat.items.splice(idx, 1);
-        save(); renderDetail();
-        showToast('已删除「' + item.name + '」', function () {
-          var c = findCat(cat.id);
-          if (!c) return;
-          c.items.splice(Math.min(idx, c.items.length), 0, item);
-          save();
-          if (c.id === currentCatId) renderDetail();
-        });
+        openActions('item', cat.id, item.id);
       });
       itemList.appendChild(row);
     });
@@ -696,10 +724,14 @@
       sinkChecked(cat);
     }
     renderDetail('all');
+    pageHome.setAttribute('aria-hidden', 'true');
+    pageDetail.setAttribute('aria-hidden', 'false');
     pageDetail.classList.add('open');
   }
   function closeDetail() {
     pageDetail.classList.remove('open');
+    pageDetail.setAttribute('aria-hidden', 'true');
+    pageHome.setAttribute('aria-hidden', 'false');
     currentCatId = null;
     renderCats();
   }
@@ -708,10 +740,18 @@
   $('btn-reset').addEventListener('click', function () {
     var cat = findCat(currentCatId);
     if (!cat || !cat.items.length) return;
+    var checkedBefore = cat.items.filter(function (it) { return it.checked; }).map(function (it) { return it.id; });
+    if (!checkedBefore.length) { showToast('当前没有已确认的物品'); return; }
     vibrate(10);
     cat.items.forEach(function (it) { it.checked = false; });
     save(); renderDetail();
-    showToast('已重置，重新点一遍吧');
+    showToast('已重置全部确认', function () {
+      var c = findCat(cat.id);
+      if (!c) return;
+      c.items.forEach(function (it) { it.checked = checkedBefore.indexOf(it.id) >= 0; });
+      save();
+      if (c.id === currentCatId) renderDetail();
+    });
   });
 
   $('btn-daily').addEventListener('click', function () {
@@ -738,33 +778,39 @@
     cat.items.forEach(function (it) { it.checked = !allDone; });
     save(); renderDetail();
     if (!allDone) { celebrate(); showToast('🎉 全部带齐，放心出发！'); }
+    else showToast('已取消全部确认');
   });
 
   // ---------- Add modal ----------
-  function openModal(mode) {
+  function openModal(mode, target) {
     modalMode = mode;
+    editingTargetId = target ? target.id : null;
     pendingTpl = null;
-    modalInput.value = '';
-    if (mode === 'cat') {
-      modalTitle.textContent = '新建分类';
+    modalInput.value = target ? target.name : '';
+    $('modal-ok').textContent = mode.indexOf('edit-') === 0 ? '保存' : '添加';
+    if (mode === 'cat' || mode === 'edit-cat') {
+      modalTitle.textContent = mode === 'edit-cat' ? '编辑分类' : '新建分类';
       modalInput.placeholder = '例如：上班、下班、买菜…';
-      pickedEmoji = EMOJIS[0];
-      tplWrap.style.display = 'block';
-      renderTplRow();
+      pickedEmoji = target && target.icon ? target.icon : EMOJIS[0];
+      tplWrap.style.display = mode === 'cat' ? 'block' : 'none';
+      if (mode === 'cat') renderTplRow();
       emojiRow.style.display = 'flex';
       renderEmojiRow();
     } else {
-      modalTitle.textContent = '添加物品';
+      modalTitle.textContent = mode === 'edit-item' ? '编辑物品' : '添加物品';
       modalInput.placeholder = '例如：钥匙、工牌、充电器…';
       tplWrap.style.display = 'none';
       emojiRow.style.display = 'none';
     }
+    modalMask.setAttribute('aria-hidden', 'false');
     modalMask.classList.add('open');
     setTimeout(function () { modalInput.focus(); }, 380);
   }
   function closeModal() {
     modalMask.classList.remove('open');
+    modalMask.setAttribute('aria-hidden', 'true');
     modalInput.blur();
+    editingTargetId = null;
   }
   function renderTplRow() {
     tplRow.innerHTML = '';
@@ -818,24 +864,162 @@
       state.cats.push({ id: uid(), name: name, icon: pickedEmoji, autoReset: false, lastResetOn: null, items: items });
       save(); renderCats();
       showToast(pendingTpl ? '已创建「' + name + '」，' + items.length + ' 件物品待确认' : '已添加分类「' + name + '」');
-    } else {
+    } else if (modalMode === 'edit-cat') {
+      var editedCat = findCat(editingTargetId);
+      if (!editedCat) { closeModal(); return; }
+      editedCat.name = name;
+      editedCat.icon = pickedEmoji;
+      save(); renderCats();
+      if (editedCat.id === currentCatId) renderDetail();
+      showToast('已保存分类');
+    } else if (modalMode === 'item') {
       var cat = findCat(currentCatId);
       if (cat) {
         var nid = uid();
         cat.items.push({ id: nid, name: name, checked: false });
         save(); renderDetail(nid);
       }
+    } else if (modalMode === 'edit-item') {
+      var currentCat = findCat(currentCatId);
+      if (!currentCat) { closeModal(); return; }
+      var editedItem = currentCat.items.find(function (it) { return it.id === editingTargetId; });
+      if (!editedItem) { closeModal(); return; }
+      editedItem.name = name;
+      save(); renderDetail();
+      showToast('已保存物品');
     }
     closeModal();
   }
   $('modal-ok').addEventListener('click', submitModal);
   modalInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitModal(); });
 
+  // ---------- Plain management actions ----------
+  function resolveActionTarget() {
+    if (!actionTarget) return null;
+    var cat = findCat(actionTarget.catId);
+    if (!cat) return null;
+    if (actionTarget.type === 'cat') return { type: 'cat', cat: cat };
+    var item = cat.items.find(function (it) { return it.id === actionTarget.itemId; });
+    return item ? { type: 'item', cat: cat, item: item } : null;
+  }
+
+  function openActions(type, catId, itemId) {
+    actionTarget = { type: type, catId: catId, itemId: itemId || null };
+    var target = resolveActionTarget();
+    if (!target) return;
+    var list = type === 'cat' ? state.cats : target.cat.items;
+    var value = type === 'cat' ? target.cat : target.item;
+    var idx = list.indexOf(value);
+    actionsTitle.textContent = type === 'cat' ? '管理「' + target.cat.name + '」' : '管理「' + target.item.name + '」';
+    $('action-edit').textContent = type === 'cat' ? '编辑分类' : '编辑物品';
+    $('action-copy').style.display = type === 'cat' ? 'block' : 'none';
+    $('action-delete').textContent = type === 'cat' ? '删除分类' : '删除物品';
+    $('action-up').disabled = idx <= 0;
+    $('action-down').disabled = idx < 0 || idx >= list.length - 1;
+    actionsMask.setAttribute('aria-hidden', 'false');
+    actionsMask.classList.add('open');
+  }
+
+  function closeActions() {
+    actionsMask.classList.remove('open');
+    actionsMask.setAttribute('aria-hidden', 'true');
+    actionTarget = null;
+  }
+
+  function deleteActionTarget() {
+    var target = resolveActionTarget();
+    if (!target) { closeActions(); return; }
+    if (target.type === 'cat') {
+      var catIdx = state.cats.indexOf(target.cat);
+      var removedCat = target.cat;
+      state.cats.splice(catIdx, 1);
+      save(); closeActions(); renderCats();
+      showToast('已删除「' + removedCat.name + '」', function () {
+        state.cats.splice(Math.min(catIdx, state.cats.length), 0, removedCat);
+        save(); renderCats();
+      });
+      return;
+    }
+    var itemIdx = target.cat.items.indexOf(target.item);
+    var removedItem = target.item;
+    var parentId = target.cat.id;
+    target.cat.items.splice(itemIdx, 1);
+    save(); closeActions(); renderDetail();
+    showToast('已删除「' + removedItem.name + '」', function () {
+      var parent = findCat(parentId);
+      if (!parent) return;
+      parent.items.splice(Math.min(itemIdx, parent.items.length), 0, removedItem);
+      save();
+      if (parent.id === currentCatId) renderDetail();
+    });
+  }
+
+  function moveActionTarget(offset) {
+    var target = resolveActionTarget();
+    if (!target) { closeActions(); return; }
+    var list = target.type === 'cat' ? state.cats : target.cat.items;
+    var value = target.type === 'cat' ? target.cat : target.item;
+    var from = list.indexOf(value);
+    var to = from + offset;
+    if (from < 0 || to < 0 || to >= list.length) return;
+    list.splice(from, 1);
+    list.splice(to, 0, value);
+    save(); closeActions();
+    if (target.type === 'cat') renderCats();
+    else renderDetail();
+  }
+
+  $('action-edit').addEventListener('click', function () {
+    var target = resolveActionTarget();
+    if (!target) { closeActions(); return; }
+    actionsMask.classList.remove('open');
+    actionsMask.setAttribute('aria-hidden', 'true');
+    actionTarget = null;
+    openModal(target.type === 'cat' ? 'edit-cat' : 'edit-item', target.type === 'cat' ? target.cat : target.item);
+  });
+  $('action-copy').addEventListener('click', function () {
+    var target = resolveActionTarget();
+    if (!target || target.type !== 'cat') { closeActions(); return; }
+    var idx = state.cats.indexOf(target.cat);
+    var suffix = ' 副本';
+    var copy = {
+      id: uid(),
+      name: target.cat.name.slice(0, 20 - suffix.length) + suffix,
+      icon: target.cat.icon,
+      autoReset: target.cat.autoReset,
+      lastResetOn: null,
+      items: target.cat.items.map(function (it) { return { id: uid(), name: it.name, checked: false }; })
+    };
+    state.cats.splice(idx + 1, 0, copy);
+    save(); closeActions(); renderCats();
+    showToast('已复制「' + target.cat.name + '」');
+  });
+  $('action-up').addEventListener('click', function () { moveActionTarget(-1); });
+  $('action-down').addEventListener('click', function () { moveActionTarget(1); });
+  $('action-delete').addEventListener('click', deleteActionTarget);
+  $('actions-close').addEventListener('click', closeActions);
+  actionsMask.addEventListener('click', function (e) { if (e.target === actionsMask) closeActions(); });
+
   // ---------- Settings: backup & restore ----------
-  $('btn-settings').addEventListener('click', function () { vibrate(8); settingsMask.classList.add('open'); });
-  function closeSettings() { settingsMask.classList.remove('open'); }
+  $('btn-settings').addEventListener('click', function () {
+    vibrate(8);
+    settingsMask.setAttribute('aria-hidden', 'false');
+    settingsMask.classList.add('open');
+  });
+  function closeSettings() {
+    settingsMask.classList.remove('open');
+    settingsMask.setAttribute('aria-hidden', 'true');
+  }
   $('settings-close').addEventListener('click', closeSettings);
   settingsMask.addEventListener('click', function (e) { if (e.target === settingsMask) closeSettings(); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (actionsMask.classList.contains('open')) closeActions();
+    else if (modalMask.classList.contains('open')) closeModal();
+    else if (settingsMask.classList.contains('open')) closeSettings();
+    else if (pageDetail.classList.contains('open')) closeDetail();
+  });
 
   $('btn-export').addEventListener('click', function () {
     var payload = { app: 'daiqilema', version: 1, exportedAt: new Date().toISOString(), cats: state.cats };
