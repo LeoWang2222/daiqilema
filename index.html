@@ -257,6 +257,10 @@
     display: flex; align-items: flex-end; justify-content: center;
     opacity: 0; pointer-events: none;
     transition: opacity .3s;
+    top: var(--viewport-top, 0px);
+    bottom: auto;
+    height: var(--viewport-height, 100dvh);
+    padding-top: 12px;
   }
   .modal-mask.open { opacity: 1; pointer-events: auto; }
   .modal {
@@ -266,6 +270,8 @@
     padding: 26px 24px calc(env(safe-area-inset-bottom) + 26px);
     transform: translateY(100%);
     transition: transform .38s cubic-bezier(.32,.72,.28,1);
+    max-height: 100%; overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .modal-mask.open .modal { transform: translateY(0); }
   .modal h3 { font-size: 20px; font-weight: 800; margin-bottom: 18px; }
@@ -306,6 +312,8 @@
   .emoji-pick:active { transform: scale(.88); }
   .emoji-pick.sel { border-color: var(--accent); background: rgba(108,92,231,.08); }
   .modal-actions { display: flex; gap: 12px; margin-top: 20px; }
+  .modal-status { margin-top: 12px; color: var(--accent); font-size: 14px; line-height: 1.5; }
+  [hidden] { display: none !important; }
   .btn-cancel, .btn-ok {
     flex: 1; padding: 16px; border-radius: 16px; border: none;
     font-size: 16px; font-weight: 700; cursor: pointer;
@@ -332,6 +340,19 @@
   .action-row { display: flex; gap: 10px; }
   .action-row .sheet-btn { flex: 1; }
   .sheet-btn:disabled { opacity: .38; cursor: default; transform: none; }
+  .storage-warning {
+    position: fixed; z-index: 300; top: calc(env(safe-area-inset-top) + 8px);
+    left: 12px; right: 12px; padding: 12px; border-radius: 14px;
+    background: #fff0ed; color: #a33328; font-size: 13px; line-height: 1.5;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 3px 12px rgba(40,40,80,.12);
+  }
+  .storage-warning span { flex: 1; }
+  .storage-warning button {
+    flex-shrink: 0; border: none; border-radius: 10px; padding: 10px;
+    background: #a33328; color: #fff; cursor: pointer;
+  }
+  body.storage-error .page { padding-top: calc(env(safe-area-inset-top) + 90px); }
 
   /* ===== Toast ===== */
   .toast {
@@ -345,7 +366,7 @@
     transition: all .35s cubic-bezier(.32,.72,.28,1);
     z-index: 200;
     box-shadow: 0 8px 24px rgba(40,40,80,.3);
-    white-space: nowrap;
+    max-width: calc(100% - 32px); width: max-content; white-space: normal;
     display: flex; align-items: center; gap: 12px;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -355,6 +376,7 @@
     padding: 5px 14px; border-radius: 100px;
     font-size: 13px; font-weight: 700;
     pointer-events: auto;
+    flex-shrink: 0;
   }
   .toast.can-undo .toast-undo { display: inline-block; }
 
@@ -413,7 +435,7 @@
 <!-- ===== Detail page: items ===== -->
 <div class="page" id="page-detail" aria-hidden="true">
   <div class="detail-head">
-    <button class="back-btn" id="btn-back">‹</button>
+    <button class="back-btn" id="btn-back" aria-label="返回分类列表">‹</button>
     <div class="detail-title">
       <h2 id="detail-name">分类</h2>
       <div class="sub" id="detail-sub"></div>
@@ -432,7 +454,8 @@
 <div class="modal-mask" id="modal-mask" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <h3 id="modal-title">添加</h3>
-    <input type="text" id="modal-input" placeholder="输入名称…" maxlength="20" autocomplete="off">
+    <input type="text" id="modal-input" placeholder="输入名称…" maxlength="20" autocomplete="off" enterkeyhint="done" aria-label="名称">
+    <p class="modal-status" id="modal-status" role="status" hidden></p>
     <div id="tpl-wrap" style="display:none">
       <div class="tpl-label">从模板一键创建（自带常用物品）</div>
       <div class="tpl-row" id="tpl-row"></div>
@@ -472,8 +495,24 @@
   </div>
 </div>
 
-<div class="burst" id="burst">🎉</div>
-<div class="toast" id="toast"><span id="toast-msg"></span><button class="toast-undo" id="toast-undo" type="button">撤销</button></div>
+<div class="modal-mask" id="import-confirm-mask" aria-hidden="true" inert>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="import-confirm-title">
+    <h3 id="import-confirm-title">导入备份</h3>
+    <p class="settings-tip" id="import-confirm-tip"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="import-confirm-cancel">取消</button>
+      <button class="btn-ok" id="import-confirm-ok">替换清单</button>
+    </div>
+  </div>
+</div>
+
+<div class="storage-warning" id="storage-warning" role="alert" hidden>
+  <span>保存失败，修改暂时只在当前页面。请先导出备份。</span>
+  <button id="storage-export" type="button">导出备份</button>
+</div>
+
+<div class="burst" id="burst" aria-hidden="true">🎉</div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" aria-hidden="true"><span id="toast-msg"></span><button class="toast-undo" id="toast-undo" type="button" disabled>撤销</button></div>
 
 <script>
 (function () {
@@ -491,6 +530,7 @@
   ];
 
   // ---------- State ----------
+  var storageFailed = false;
   var state = load();
   var currentCatId = null;
 
@@ -512,7 +552,13 @@
     };
   }
   function save() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      storageFailed = false;
+    } catch (e) { storageFailed = true; }
+    $('storage-warning').hidden = !storageFailed;
+    document.body.classList.toggle('storage-error', storageFailed);
+    return !storageFailed;
   }
   function uid() { return 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   function todayKey() {
@@ -528,6 +574,7 @@
   var emojiRow = $('emoji-row'), tplWrap = $('tpl-wrap'), tplRow = $('tpl-row');
   var settingsMask = $('settings-mask');
   var actionsMask = $('actions-mask'), actionsTitle = $('actions-title');
+  var importMask = $('import-confirm-mask');
   var toastEl = $('toast'), toastMsg = $('toast-msg'), toastUndoBtn = $('toast-undo');
   var burst = $('burst');
 
@@ -536,21 +583,43 @@
   var actionTarget = null;
   var pickedEmoji = EMOJIS[0];
   var pendingTpl = null;
+  var pendingImport = null;
+  var route = { daiqilema: true, catId: null, sheet: null };
+  var navigationPending = false;
+  var modalDrafts = {};
+  var modalFocusTimer = null;
+  var discardModalDraft = false;
+  var inputComposing = false;
+  var compositionEndedAt = 0;
 
   // ---------- Helpers ----------
   function vibrate(ms) { if (navigator.vibrate) navigator.vibrate(ms || 10); }
-  function showToast(msg, actionFn, actionLabel) {
+  function showToast(msg, actionFn, actionLabel, allowUnsaved) {
+    if (storageFailed && !allowUnsaved) msg = '修改尚未保存到设备，请先导出备份';
     toastMsg.textContent = msg;
     toastEl.classList.toggle('can-undo', !!actionFn);
     toastUndoBtn.textContent = actionLabel || '撤销';
+    toastUndoBtn.disabled = !actionFn;
     toastUndoBtn.onclick = actionFn ? function () {
+      if (!actionFn) return;
+      var runAction = actionFn;
+      actionFn = null;
       clearTimeout(toastEl._t);
-      toastEl.classList.remove('show');
-      actionFn();
+      toastEl.classList.remove('show', 'can-undo');
+      toastEl.setAttribute('aria-hidden', 'true');
+      toastUndoBtn.onclick = null;
+      toastUndoBtn.disabled = true;
+      runAction();
     } : null;
     toastEl.classList.add('show');
+    toastEl.setAttribute('aria-hidden', 'false');
     clearTimeout(toastEl._t);
-    toastEl._t = setTimeout(function () { toastEl.classList.remove('show'); }, actionFn ? 8000 : 1800);
+    toastEl._t = setTimeout(function () {
+      toastEl.classList.remove('show', 'can-undo');
+      toastEl.setAttribute('aria-hidden', 'true');
+      toastUndoBtn.disabled = true;
+      toastUndoBtn.onclick = null;
+    }, actionFn ? 8000 : 1800);
   }
   function celebrate() {
     burst.classList.remove('show');
@@ -585,14 +654,18 @@
     return had;
   }
 
-  // 打开分类时，未确认的排前面，一眼看到还差什么
-  function sinkChecked(cat) {
-    var first = [], rest = [];
-    cat.items.forEach(function (it) { (it.checked ? rest : first).push(it); });
-    if (first.length && rest.length) {
-      cat.items = first.concat(rest);
-      save();
-    }
+  // 顺序由用户管理，勾选或重新打开清单都不改动它。
+  function refreshDailyResets() {
+    var changed = false, resetChecks = false;
+    state.cats.forEach(function (cat) {
+      if (!cat.autoReset || cat.lastResetOn === todayKey()) return;
+      changed = true;
+      if (applyDailyReset(cat)) resetChecks = true;
+    });
+    if (!changed) return;
+    renderCats();
+    if (currentCatId) renderDetail();
+    if (resetChecks) showToast('新的一天，每日清单已重置');
   }
 
   // ---------- Render: categories ----------
@@ -612,7 +685,7 @@
       card.className = 'cat-card';
       var color = iconColor(cat.name);
       card.innerHTML =
-        '<div class="cat-icon" style="background:' + color + '18">' + (cat.icon || '📋') + '</div>' +
+        '<div class="cat-icon" style="background:' + color + '18">' + esc(cat.icon || '📋') + '</div>' +
         '<div class="cat-info">' +
           '<div class="cat-name-row">' +
             '<div class="cat-name">' + esc(cat.name) + '</div>' +
@@ -652,14 +725,16 @@
     allBtn.textContent = allDone ? '取消全部确认' : '一键全带齐 ✓';
     allBtn.classList.toggle('all-done', allDone);
     allBtn.style.opacity = total === 0 ? '.4' : '1';
+    allBtn.disabled = total === 0;
   }
 
   // animateId: 'all' = 进场动画（打开分类时）；某条目 id = 只给新加的那条动画；其余情况不播动画
   function renderDetail(animateId) {
     var cat = findCat(currentCatId);
-    if (!cat) { closeDetail(); return; }
+    if (!cat) return;
     $('detail-name').textContent = (cat.icon ? cat.icon + ' ' : '') + cat.name;
     $('btn-daily').classList.toggle('on', !!cat.autoReset);
+    $('btn-daily').setAttribute('aria-pressed', String(!!cat.autoReset));
     updateDetailBar(cat);
 
     itemList.innerHTML = '';
@@ -717,41 +792,156 @@
 
   // ---------- Navigation ----------
   function openCat(id) {
+    if (navigationPending || !findCat(id)) return;
+    navigate({ daiqilema: true, catId: id, sheet: null });
+  }
+  function showDetail(id, animate) {
     currentCatId = id;
     var cat = findCat(id);
     if (cat) {
       if (applyDailyReset(cat)) showToast('☀️ 新的一天，清单已自动重置');
-      sinkChecked(cat);
     }
-    renderDetail('all');
+    renderDetail(animate ? 'all' : null);
     pageHome.setAttribute('aria-hidden', 'true');
     pageDetail.setAttribute('aria-hidden', 'false');
     pageDetail.classList.add('open');
   }
   function closeDetail() {
+    goBack();
+  }
+  function hideDetail() {
     pageDetail.classList.remove('open');
     pageDetail.setAttribute('aria-hidden', 'true');
     pageHome.setAttribute('aria-hidden', 'false');
     currentCatId = null;
     renderCats();
   }
+
+  function setSurface(element, visible) {
+    element.classList.toggle('open', visible);
+    element.inert = !visible;
+    element.setAttribute('aria-hidden', String(!visible));
+  }
+
+  function modalDraftKey(value) {
+    var sheet = value.sheet || {};
+    return [value.catId || '', sheet.mode || '', sheet.targetId || ''].join(':');
+  }
+
+  function rememberModalDraft() {
+    if (!route.sheet || route.sheet.type !== 'modal' || !modalMask.classList.contains('open')) return;
+    if (discardModalDraft) { delete modalDrafts[modalDraftKey(route)]; return; }
+    modalDrafts[modalDraftKey(route)] = { name: modalInput.value, icon: pickedEmoji, template: pendingTpl };
+  }
+
+  function normalizeRoute(value) {
+    var next = { daiqilema: true, catId: value && value.daiqilema && findCat(value.catId) ? value.catId : null, sheet: null };
+    var sheet = value && value.daiqilema ? value.sheet : null;
+    if (!sheet) return next;
+    var cat, item;
+    if (sheet.type === 'settings') next.sheet = sheet;
+    else if (sheet.type === 'import' && pendingImport) next.sheet = sheet;
+    else if (sheet.type === 'actions') {
+      cat = findCat(sheet.catId);
+      item = cat && cat.items.find(function (it) { return it.id === sheet.itemId; });
+      if (cat && (sheet.kind === 'cat' || (sheet.kind === 'item' && item))) next.sheet = sheet;
+    } else if (sheet.type === 'modal') {
+      cat = findCat(next.catId);
+      item = cat && cat.items.find(function (it) { return it.id === sheet.targetId; });
+      if (sheet.mode === 'cat' || (sheet.mode === 'edit-cat' && findCat(sheet.targetId)) ||
+          (sheet.mode === 'item' && cat) || (sheet.mode === 'edit-item' && item)) next.sheet = sheet;
+    }
+    return next;
+  }
+
+  function applyRoute(value) {
+    var next = normalizeRoute(value), changedCat = currentCatId !== next.catId;
+    if (JSON.stringify(value) !== JSON.stringify(next)) history.replaceState(next, '');
+    clearTimeout(modalFocusTimer);
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    [modalMask, actionsMask, settingsMask, importMask].forEach(function (mask) { setSurface(mask, false); });
+    actionTarget = null;
+    editingTargetId = null;
+    route = next;
+    if (next.catId) {
+      showDetail(next.catId, changedCat);
+      if (changedCat) itemList.scrollTop = 0;
+    } else hideDetail();
+    pageHome.inert = !!next.catId || !!next.sheet;
+    pageDetail.inert = !next.catId || !!next.sheet;
+    pageHome.setAttribute('aria-hidden', String(!!next.catId || !!next.sheet));
+    pageDetail.setAttribute('aria-hidden', String(!next.catId || !!next.sheet));
+    if (!next.sheet) return;
+    var sheet = next.sheet;
+    if (sheet.type === 'modal') {
+      var target = sheet.mode === 'edit-cat' ? findCat(sheet.targetId) :
+        sheet.mode === 'edit-item' ? findCat(next.catId).items.find(function (it) { return it.id === sheet.targetId; }) : null;
+      showModal(sheet.mode, target);
+    } else if (sheet.type === 'actions') {
+      showActions(sheet.kind, sheet.catId, sheet.itemId);
+      $('action-edit').focus();
+    } else if (sheet.type === 'settings') {
+      setSurface(settingsMask, true);
+      $('btn-export').focus();
+    } else if (sheet.type === 'import') {
+      var totalItems = pendingImport.reduce(function (sum, cat) { return sum + cat.items.length; }, 0);
+      $('import-confirm-tip').textContent = '备份包含 ' + pendingImport.length + ' 个分类、' + totalItems +
+        ' 件物品。导入后会替换当前 ' + state.cats.length + ' 个分类，成功后可撤销。';
+      setSurface(importMask, true);
+      $('import-confirm-cancel').focus();
+    }
+  }
+
+  function navigate(next, replace) {
+    if (navigationPending) return;
+    rememberModalDraft();
+    next = normalizeRoute(next);
+    if (replace) history.replaceState(next, '');
+    else history.pushState(next, '');
+    applyRoute(next);
+  }
+
+  function goBack() {
+    if (navigationPending || (!route.sheet && !route.catId)) return;
+    rememberModalDraft();
+    navigationPending = true;
+    history.back();
+  }
+
+  window.addEventListener('popstate', function (e) {
+    rememberModalDraft();
+    navigationPending = false;
+    applyRoute(e.state);
+  });
+
   $('btn-back').addEventListener('click', function () { vibrate(6); closeDetail(); });
+
+  function changeAllChecks(cat, checked, message) {
+    var changes = cat.items.filter(function (it) { return it.checked !== checked; }).map(function (it) {
+      return { id: it.id, before: it.checked, after: checked };
+    });
+    if (!changes.length) { showToast('当前没有需要重置的确认'); return; }
+    var actionDay = todayKey();
+    cat.items.forEach(function (it) { it.checked = checked; });
+    save(); renderDetail();
+    showToast(message, function () {
+      var c = findCat(cat.id);
+      if (!c) return;
+      if (c.autoReset && actionDay !== todayKey()) { refreshDailyResets(); return; }
+      changes.forEach(function (change) {
+        var item = c.items.find(function (it) { return it.id === change.id; });
+        if (item && item.checked === change.after) item.checked = change.before;
+      });
+      save(); renderCats();
+      if (c.id === currentCatId) renderDetail();
+    });
+  }
 
   $('btn-reset').addEventListener('click', function () {
     var cat = findCat(currentCatId);
     if (!cat || !cat.items.length) return;
-    var checkedBefore = cat.items.filter(function (it) { return it.checked; }).map(function (it) { return it.id; });
-    if (!checkedBefore.length) { showToast('当前没有已确认的物品'); return; }
     vibrate(10);
-    cat.items.forEach(function (it) { it.checked = false; });
-    save(); renderDetail();
-    showToast('已重置全部确认', function () {
-      var c = findCat(cat.id);
-      if (!c) return;
-      c.items.forEach(function (it) { it.checked = checkedBefore.indexOf(it.id) >= 0; });
-      save();
-      if (c.id === currentCatId) renderDetail();
-    });
+    changeAllChecks(cat, false, '已重置全部确认');
   });
 
   $('btn-daily').addEventListener('click', function () {
@@ -761,13 +951,9 @@
     cat.autoReset = !cat.autoReset;
     if (cat.autoReset) {
       cat.lastResetOn = todayKey();
-      var had = cat.items.some(function (it) { return it.checked; });
-      cat.items.forEach(function (it) { it.checked = false; });
-      showToast(had ? '已开启：明天打开会自动清零' : '已开启每天自动重置');
-    } else {
-      showToast('已关闭每天自动重置');
     }
     save(); renderDetail();
+    showToast(cat.autoReset ? '已开启，今天的确认保留，明天自动重置' : '已关闭每天自动重置');
   });
 
   $('btn-checkall').addEventListener('click', function () {
@@ -775,18 +961,27 @@
     if (!cat || !cat.items.length) return;
     var allDone = cat.items.every(function (it) { return it.checked; });
     vibrate(20);
-    cat.items.forEach(function (it) { it.checked = !allDone; });
-    save(); renderDetail();
-    if (!allDone) { celebrate(); showToast('🎉 全部带齐，放心出发！'); }
-    else showToast('已取消全部确认');
+    changeAllChecks(cat, !allDone, allDone ? '已取消全部确认' : '全部带齐，放心出发！');
+    if (!allDone) celebrate();
   });
 
   // ---------- Add modal ----------
   function openModal(mode, target) {
+    navigate({ daiqilema: true, catId: currentCatId, sheet: {
+      type: 'modal', mode: mode, targetId: target ? target.id : null
+    } });
+  }
+  function showModal(mode, target) {
+    discardModalDraft = false;
     modalMode = mode;
     editingTargetId = target ? target.id : null;
     pendingTpl = null;
     modalInput.value = target ? target.name : '';
+    inputComposing = false;
+    compositionEndedAt = 0;
+    $('modal-status').hidden = true;
+    $('modal-cancel').textContent = mode === 'item' ? '完成' : '取消';
+    modalInput.setAttribute('enterkeyhint', mode === 'item' ? 'next' : 'done');
     $('modal-ok').textContent = mode.indexOf('edit-') === 0 ? '保存' : '添加';
     if (mode === 'cat' || mode === 'edit-cat') {
       modalTitle.textContent = mode === 'edit-cat' ? '编辑分类' : '新建分类';
@@ -802,15 +997,22 @@
       tplWrap.style.display = 'none';
       emojiRow.style.display = 'none';
     }
-    modalMask.setAttribute('aria-hidden', 'false');
-    modalMask.classList.add('open');
-    setTimeout(function () { modalInput.focus(); }, 380);
+    var draft = modalDrafts[modalDraftKey(route)];
+    if (draft) {
+      modalInput.value = draft.name;
+      pickedEmoji = draft.icon;
+      pendingTpl = draft.template;
+      if (mode === 'cat') renderTplRow();
+      if (mode === 'cat' || mode === 'edit-cat') renderEmojiRow();
+    }
+    setSurface(modalMask, true);
+    modalInput.focus();
+    modalFocusTimer = setTimeout(function () {
+      if (modalMask.classList.contains('open') && !navigationPending) modalInput.focus();
+    }, 380);
   }
   function closeModal() {
-    modalMask.classList.remove('open');
-    modalMask.setAttribute('aria-hidden', 'true');
-    modalInput.blur();
-    editingTargetId = null;
+    goBack();
   }
   function renderTplRow() {
     tplRow.innerHTML = '';
@@ -854,6 +1056,7 @@
   modalMask.addEventListener('click', function (e) { if (e.target === modalMask) closeModal(); });
 
   function submitModal() {
+    if (navigationPending || inputComposing || !modalMask.classList.contains('open')) return;
     var name = modalInput.value.trim();
     if (!name) { modalInput.focus(); return; }
     vibrate(12);
@@ -878,6 +1081,13 @@
         var nid = uid();
         cat.items.push({ id: nid, name: name, checked: false });
         save(); renderDetail(nid);
+        modalInput.value = '';
+        $('modal-status').textContent = '已添加「' + name + '」，可以继续输入下一件';
+        if (storageFailed) $('modal-status').textContent = '已添加到当前页面，请先导出备份';
+        $('modal-status').hidden = false;
+        modalInput.focus();
+        delete modalDrafts[modalDraftKey(route)];
+        return;
       }
     } else if (modalMode === 'edit-item') {
       var currentCat = findCat(currentCatId);
@@ -888,10 +1098,22 @@
       save(); renderDetail();
       showToast('已保存物品');
     }
+    modalInput.value = '';
+    discardModalDraft = true;
+    delete modalDrafts[modalDraftKey(route)];
     closeModal();
   }
+  $('modal-ok').addEventListener('pointerdown', function (e) {
+    if (modalMode === 'item') e.preventDefault();
+  });
   $('modal-ok').addEventListener('click', submitModal);
-  modalInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitModal(); });
+  modalInput.addEventListener('compositionstart', function () { inputComposing = true; });
+  modalInput.addEventListener('compositionend', function () { inputComposing = false; compositionEndedAt = Date.now(); });
+  modalInput.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.isComposing || inputComposing || e.keyCode === 229 || Date.now() - compositionEndedAt < 100) return;
+    e.preventDefault();
+    submitModal();
+  });
 
   // ---------- Plain management actions ----------
   function resolveActionTarget() {
@@ -904,6 +1126,11 @@
   }
 
   function openActions(type, catId, itemId) {
+    navigate({ daiqilema: true, catId: currentCatId, sheet: {
+      type: 'actions', kind: type, catId: catId, itemId: itemId || null
+    } });
+  }
+  function showActions(type, catId, itemId) {
     actionTarget = { type: type, catId: catId, itemId: itemId || null };
     var target = resolveActionTarget();
     if (!target) return;
@@ -916,17 +1143,15 @@
     $('action-delete').textContent = type === 'cat' ? '删除分类' : '删除物品';
     $('action-up').disabled = idx <= 0;
     $('action-down').disabled = idx < 0 || idx >= list.length - 1;
-    actionsMask.setAttribute('aria-hidden', 'false');
-    actionsMask.classList.add('open');
+    setSurface(actionsMask, true);
   }
 
   function closeActions() {
-    actionsMask.classList.remove('open');
-    actionsMask.setAttribute('aria-hidden', 'true');
-    actionTarget = null;
+    goBack();
   }
 
   function deleteActionTarget() {
+    if (navigationPending) return;
     var target = resolveActionTarget();
     if (!target) { closeActions(); return; }
     if (target.type === 'cat') {
@@ -955,6 +1180,7 @@
   }
 
   function moveActionTarget(offset) {
+    if (navigationPending) return;
     var target = resolveActionTarget();
     if (!target) { closeActions(); return; }
     var list = target.type === 'cat' ? state.cats : target.cat.items;
@@ -964,20 +1190,22 @@
     if (from < 0 || to < 0 || to >= list.length) return;
     list.splice(from, 1);
     list.splice(to, 0, value);
-    save(); closeActions();
+    save();
     if (target.type === 'cat') renderCats();
     else renderDetail();
+    showActions(target.type, target.cat.id, target.item ? target.item.id : null);
   }
 
   $('action-edit').addEventListener('click', function () {
     var target = resolveActionTarget();
     if (!target) { closeActions(); return; }
-    actionsMask.classList.remove('open');
-    actionsMask.setAttribute('aria-hidden', 'true');
-    actionTarget = null;
-    openModal(target.type === 'cat' ? 'edit-cat' : 'edit-item', target.type === 'cat' ? target.cat : target.item);
+    navigate({ daiqilema: true, catId: currentCatId, sheet: {
+      type: 'modal', mode: target.type === 'cat' ? 'edit-cat' : 'edit-item',
+      targetId: target.type === 'cat' ? target.cat.id : target.item.id
+    } }, true);
   });
   $('action-copy').addEventListener('click', function () {
+    if (navigationPending) return;
     var target = resolveActionTarget();
     if (!target || target.type !== 'cat') { closeActions(); return; }
     var idx = state.cats.indexOf(target.cat);
@@ -1003,25 +1231,20 @@
   // ---------- Settings: backup & restore ----------
   $('btn-settings').addEventListener('click', function () {
     vibrate(8);
-    settingsMask.setAttribute('aria-hidden', 'false');
-    settingsMask.classList.add('open');
+    navigate({ daiqilema: true, catId: currentCatId, sheet: { type: 'settings' } });
   });
   function closeSettings() {
-    settingsMask.classList.remove('open');
-    settingsMask.setAttribute('aria-hidden', 'true');
+    goBack();
   }
   $('settings-close').addEventListener('click', closeSettings);
   settingsMask.addEventListener('click', function (e) { if (e.target === settingsMask) closeSettings(); });
 
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (actionsMask.classList.contains('open')) closeActions();
-    else if (modalMask.classList.contains('open')) closeModal();
-    else if (settingsMask.classList.contains('open')) closeSettings();
-    else if (pageDetail.classList.contains('open')) closeDetail();
+    if (route.sheet || route.catId) { e.preventDefault(); goBack(); }
   });
 
-  $('btn-export').addEventListener('click', function () {
+  function exportBackup() {
     var payload = { app: 'daiqilema', version: 1, exportedAt: new Date().toISOString(), cats: state.cats };
     var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     var a = document.createElement('a');
@@ -1031,9 +1254,11 @@
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-    closeSettings();
-    showToast('备份文件已导出');
-  });
+    if (route.sheet && route.sheet.type === 'settings') closeSettings();
+    showToast('备份文件已导出', null, null, true);
+  }
+  $('btn-export').addEventListener('click', exportBackup);
+  $('storage-export').addEventListener('click', exportBackup);
 
   function normalizeCat(c) {
     if (!c || typeof c.name !== 'string' || !c.name.trim()) return null;
@@ -1042,7 +1267,7 @@
       name: c.name.trim().slice(0, 20),
       icon: (typeof c.icon === 'string' && c.icon) ? c.icon : '📋',
       autoReset: !!c.autoReset,
-      lastResetOn: null,
+      lastResetOn: c.autoReset ? todayKey() : null,
       items: (Array.isArray(c.items) ? c.items : []).map(function (it) {
         var n = it && typeof it.name === 'string' ? it.name.trim().slice(0, 20) : '';
         return { id: uid(), name: n || '物品', checked: !!(it && it.checked) };
@@ -1064,19 +1289,46 @@
         if (!rawCats.length) { showToast('备份文件里没有分类'); return; }
         var cats = rawCats.map(normalizeCat).filter(Boolean);
         if (!cats.length) throw new Error('bad format');
-        var prev = state.cats;
-        state.cats = cats;
-        save(); renderCats(); closeSettings();
-        showToast('已导入 ' + cats.length + ' 个分类', function () {
-          state.cats = prev;
-          save(); renderCats();
-        });
+        if (!route.sheet || route.sheet.type !== 'settings' || navigationPending) return;
+        pendingImport = cats;
+        navigate({ daiqilema: true, catId: currentCatId, sheet: { type: 'import' } });
       } catch (e) {
         showToast('导入失败：文件格式不对');
       }
     };
+    reader.onerror = function () { showToast('无法读取备份，请重新选择文件'); };
     reader.readAsText(f);
   });
+
+  $('import-confirm-cancel').addEventListener('click', function () { pendingImport = null; goBack(); });
+  importMask.addEventListener('click', function (e) { if (e.target === importMask) { pendingImport = null; goBack(); } });
+  $('import-confirm-ok').addEventListener('click', function () {
+    if (navigationPending || !pendingImport) return;
+    var imported = pendingImport, previous = state.cats;
+    state.cats = imported;
+    if (!save()) { state.cats = previous; return; }
+    pendingImport = null;
+    renderCats(); goBack();
+    showToast('已导入 ' + imported.length + ' 个分类', function () {
+      state.cats = previous;
+      save(); applyRoute(route);
+    });
+  });
+
+  function updateViewport() {
+    var viewport = window.visualViewport;
+    document.documentElement.style.setProperty('--viewport-height', (viewport ? viewport.height : window.innerHeight) + 'px');
+    document.documentElement.style.setProperty('--viewport-top', (viewport ? viewport.offsetTop : 0) + 'px');
+  }
+  window.addEventListener('resize', updateViewport);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateViewport);
+    window.visualViewport.addEventListener('scroll', updateViewport);
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') refreshDailyResets();
+  });
+  window.addEventListener('pageshow', refreshDailyResets);
 
   // ---------- Offline cache ----------
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
@@ -1103,7 +1355,10 @@
 
   // ---------- Init ----------
   state.cats.forEach(function (c) { applyDailyReset(c); });
-  renderCats();
+  updateViewport();
+  var restoredRoute = normalizeRoute(history.state);
+  history.replaceState(restoredRoute, '');
+  applyRoute(restoredRoute);
 })();
 </script>
 </body>
